@@ -783,8 +783,8 @@ class TkDND_DropTarget: public IDropTarget {
       objv[2] = typelist;
       objv[3] = actionlist;
       objv[4] = GetPressedKeys(grfKeyState);
-      objv[5] = Tcl_NewLongObj(pt.x);
-      objv[6] = Tcl_NewLongObj(pt.y);
+      objv[5] = Tcl_NewWideIntObj((Tcl_WideInt)pt.x);
+      objv[6] = Tcl_NewWideIntObj((Tcl_WideInt)pt.y);
       objv[7] = codelist;
       objv[8] = data;
       TkDND_Status_Eval(9);
@@ -848,8 +848,8 @@ class TkDND_DropTarget: public IDropTarget {
       objv[0] = Tcl_NewStringObj("::tkdnd::olednd::HandleDragOver", -1);
       objv[1] = Tcl_NewStringObj(Tk_PathName(tkwin), -1);
       objv[2] = GetPressedKeys(grfKeyState);
-      objv[3] = Tcl_NewLongObj(pt.x);
-      objv[4] = Tcl_NewLongObj(pt.y);
+      objv[3] = Tcl_NewWideIntObj((Tcl_WideInt)pt.x);
+      objv[4] = Tcl_NewWideIntObj((Tcl_WideInt)pt.y);
       TkDND_Status_Eval(5);
       if (status == TCL_OK) {
         /* Get the returned action... */
@@ -899,8 +899,8 @@ class TkDND_DropTarget: public IDropTarget {
       objv[0] = Tcl_NewStringObj("::tkdnd::olednd::HandleDrop", -1);
       objv[1] = Tcl_NewStringObj(Tk_PathName(tkwin), -1);
       objv[2] = GetPressedKeys(grfKeyState);
-      objv[3] = Tcl_NewLongObj(pt.x);
-      objv[4] = Tcl_NewLongObj(pt.y);
+      objv[3] = Tcl_NewWideIntObj((Tcl_WideInt)pt.x);
+      objv[4] = Tcl_NewWideIntObj((Tcl_WideInt)pt.y);
       objv[5] = type;
       objv[6] = data;
       TkDND_Status_Eval(7);

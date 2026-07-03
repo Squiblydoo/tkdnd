@@ -68,6 +68,12 @@ IF ( WIN32 )
   ADD_DEFINITIONS     ( -D_UNICODE )
   # ADD_DEFINITIONS     ( -D_MBCS )
 
+  # When building against a Tk source tree (e.g. cross-compiling for ARM64),
+  # X11 compat headers live in xlib/ beside generic/.
+  IF ( EXISTS "${TK_INCLUDE_PATH}/../xlib/X11/Xlib.h" )
+    INCLUDE_DIRECTORIES ( "${TK_INCLUDE_PATH}/../xlib" )
+  ENDIF ()
+
   check_include_files(Strsafe.h       HAVE_STRSAFE_H)
 
   IF(HAVE_STRSAFE_H)
@@ -80,9 +86,8 @@ ELSE  ( WIN32 )
     # SET ( CMAKE_OSX_ARCHITECTURES "x86_64;i386" )
     FIND_LIBRARY ( COCOA_LIBRARY Cocoa )
     INCLUDE_DIRECTORIES ( macosx )
-    INCLUDE_DIRECTORIES ( /Library/Frameworks/Tk.framework/Versions/8.6/PrivateHeaders )
-    INCLUDE_DIRECTORIES ( /System/Library/Frameworks/Tk.framework/Versions/8.5/Headers/tk-private )
-    INCLUDE_DIRECTORIES ( /System/Library/Frameworks/Tk.framework/Versions/8.5/Headers/tk-private )
+    GET_FILENAME_COMPONENT ( TK_FRAMEWORK_PATH "${TK_INCLUDE_PATH}/.." ABSOLUTE )
+    INCLUDE_DIRECTORIES ( "${TK_FRAMEWORK_PATH}/PrivateHeaders" )
     ADD_DEFINITIONS     ( -DMAC_TK_COCOA -DMAC_OSX_TK)
     ADD_DEFINITIONS     ( -DMAC_OSX_TK )
     ADD_DEFINITIONS     ( -std=gnu99 )

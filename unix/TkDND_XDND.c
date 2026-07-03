@@ -126,7 +126,7 @@
 
 #define TkDND_Dict_PutLong(dict, k, v) \
   key   = Tcl_NewStringObj(k, -1); Tcl_IncrRefCount(key); \
-  value = Tcl_NewLongObj(v); Tcl_IncrRefCount(value); \
+  value = Tcl_NewWideIntObj((Tcl_WideInt)(v)); Tcl_IncrRefCount(value); \
   Tcl_DictObjPut(interp, dict, key, value); \
   Tcl_DecrRefCount(key); Tcl_DecrRefCount(value);
 
@@ -285,9 +285,8 @@ int TkDND_RegisterTypesObjCmd(ClientData clientData, Tcl_Interp *interp,
     defined(TKDND_SET_XDND_PROPERTY_ON_TOPLEVEL)
   toplevel = TkDND_TkWin(objv[2]);
   if (!Tk_IsTopLevel(toplevel)) {
-    Tcl_ResetResult(interp);
-    Tcl_AppendResult(interp, "path \"", Tcl_GetString(objv[2]),
-                             "\" is not a toplevel window!", (char *) NULL);
+    Tcl_SetObjResult(interp, Tcl_ObjPrintf("path \"%s\" is not a toplevel window!",
+                             Tcl_GetString(objv[2])));
     return TCL_ERROR;
   }
   Tk_MakeWindowExist(toplevel);
@@ -474,13 +473,13 @@ int TkDND_HandleXdndEnter(Tk_Window tkwin, XEvent *xevent) {
    * level.*/
   objv[0] = Tcl_NewStringObj("tkdnd::xdnd::HandleXdndEnter", -1);
   objv[1] = Tcl_NewStringObj(Tk_PathName(toplevel), -1);
-  objv[2] = Tcl_NewLongObj(drag_source);
+  objv[2] = Tcl_NewWideIntObj((Tcl_WideInt)drag_source);
   objv[3] = Tcl_NewListObj(0, NULL);
   for (i=0; typelist[i] != None; ++i) {
     element = Tcl_NewStringObj(Tk_GetAtomName(tkwin, typelist[i]), -1);
     Tcl_ListObjAppendElement(NULL, objv[3], element);
   }
-  objv[4] = Tcl_NewLongObj(time);
+  objv[4] = Tcl_NewWideIntObj((Tcl_WideInt)time);
   TkDND_Eval(5);
   Tcl_Free((char *) typelist);
   return True;
@@ -563,8 +562,8 @@ int TkDND_HandleXdndPosition(Tk_Window tkwin, XEvent *xevent) {
     objv[1] = Tcl_NewStringObj(Tk_PathName(mouse_tkwin), -1);
     objv[2] = Tcl_NewIntObj(rootX);
     objv[3] = Tcl_NewIntObj(rootY);
-    objv[4] = Tcl_NewLongObj(time);
-    objv[5] = Tcl_NewLongObj(drag_source);
+    objv[4] = Tcl_NewWideIntObj((Tcl_WideInt)time);
+    objv[5] = Tcl_NewWideIntObj((Tcl_WideInt)drag_source);
     objv[6] = TkDND_ActionToString(tkwin, action);
     TkDND_Status_Eval(7);
     if (status == TCL_OK) {
@@ -666,7 +665,7 @@ int TkDND_HandleXdndDrop(Tk_Window tkwin, XEvent *xevent) {
 
   /* Call out Tcl callback. */
   objv[0] = Tcl_NewStringObj("tkdnd::xdnd::HandleXdndDrop", -1);
-  objv[1] = Tcl_NewLongObj(time);
+  objv[1] = Tcl_NewWideIntObj((Tcl_WideInt)time);
   TkDND_Status_Eval(2);
   if (status == TCL_OK) {
     /* Get the returned action... */
@@ -826,7 +825,7 @@ static int TkDND_XDNDHandler(Tk_Window tkwin, XEvent *xevent) {
  * If TIP 370 gets implemented, they will not be required.
  */
 static int TkDND_SelGetProc(ClientData clientData,
-                            Tcl_Interp *interp, CONST86 char *portion) {
+                            Tcl_Interp *interp, const char *portion) {
   Tcl_DStringAppend(clientData, portion, -1);
   return TCL_OK;
 }; /* TkDND_SelGetProc */
@@ -858,8 +857,7 @@ int TkDND_GetSelectionObjCmd(ClientData clientData, Tcl_Interp *interp,
         break;
     }
     if (count < 2) {
-        Tcl_AppendResult(interp, "value for \"", string,
-                                 "\" missing", NULL);
+        Tcl_SetObjResult(interp, Tcl_ObjPrintf("value for \"%s\" missing", string));
         return TCL_ERROR;
     }
 
@@ -878,11 +876,14 @@ int TkDND_GetSelectionObjCmd(ClientData clientData, Tcl_Interp *interp,
     case GET_TYPE:
         targetName = Tcl_GetString(objs[1]);
         break;
-    case GET_TIME:
-        if (Tcl_GetLongFromObj(interp, objs[1], (long *) &time) != TCL_OK) {
+    case GET_TIME: {
+        Tcl_WideInt _w;
+        if (Tcl_GetWideIntFromObj(interp, objs[1], &_w) != TCL_OK) {
           return TCL_ERROR;
         }
+        time = (Time)_w;
         break;
+    }
     }
   }
   if (path != NULL) {
@@ -965,12 +966,12 @@ int TkDND_AnnounceActionListObjCmd(ClientData clientData, Tcl_Interp *interp,
   if (status != TCL_OK) return status;
 
   if (actions != descriptions) {
-    Tcl_SetResult(interp, "number of actions != number of descriptions",
-                                                              TCL_STATIC);
+    Tcl_SetObjResult(interp, Tcl_NewStringObj(
+                     "number of actions != number of descriptions", -1));
     return TCL_ERROR;
   }
   if (actions > 10) {
-    Tcl_SetResult(interp, "too many actions/descriptions", TCL_STATIC);
+    Tcl_SetObjResult(interp, Tcl_NewStringObj("too many actions/descriptions", -1));
     return TCL_ERROR;
   }
 
@@ -1005,8 +1006,8 @@ int TkDND_GrabPointerObjCmd(ClientData clientData, Tcl_Interp *interp,
 
   cursor = TkDND_GetCursor(interp, objv[2]);
   if (cursor == None) {
-    Tcl_SetResult(interp, "invalid cursor name: ", TCL_STATIC);
-    Tcl_AppendResult(interp, Tcl_GetString(objv[2]));
+    Tcl_SetObjResult(interp, Tcl_ObjPrintf("invalid cursor name: %s",
+                     Tcl_GetString(objv[2])));
     return TCL_ERROR;
   }
 
@@ -1015,7 +1016,7 @@ int TkDND_GrabPointerObjCmd(ClientData clientData, Tcl_Interp *interp,
        PointerMotionMask | EnterWindowMask   | LeaveWindowMask,
        GrabModeAsync, GrabModeAsync,
        None, (Cursor) cursor, CurrentTime) != GrabSuccess) {
-    Tcl_SetResult(interp, "unable to grab mouse pointer", TCL_STATIC);
+    Tcl_SetObjResult(interp, Tcl_NewStringObj("unable to grab mouse pointer", -1));
     return TCL_ERROR;
   }
   return TCL_OK;
@@ -1050,8 +1051,8 @@ int TkDND_SetPointerCursorObjCmd(ClientData clientData, Tcl_Interp *interp,
 
   cursor = TkDND_GetCursor(interp, objv[2]);
   if (cursor == None) {
-    Tcl_SetResult(interp, "invalid cursor name: ", TCL_STATIC);
-    Tcl_AppendResult(interp, Tcl_GetString(objv[2]));
+    Tcl_SetObjResult(interp, Tcl_ObjPrintf("invalid cursor name: %s",
+                     Tcl_GetString(objv[2])));
     return TCL_ERROR;
   }
 
@@ -1216,7 +1217,7 @@ int TkDND_HandleGenericEvent(ClientData clientData, XEvent *eventPtr) {
   } else {*/
   if (status != TCL_OK) {
     /* An error occurred, stop the drag action... */
-    Tcl_SetVar(interp, "::tkdnd::xdnd::_dragging", "0", TCL_GLOBAL_ONLY);
+    Tcl_SetVar2(interp, "::tkdnd::xdnd::_dragging", NULL, "0", TCL_GLOBAL_ONLY);
   }
   return 0;
 }; /* TkDND_HandleGenericEvent */
@@ -1288,7 +1289,7 @@ int TkDND_FindDropTargetWindowObjCmd(ClientData clientData,
     }
   }
   if (target) {
-    Tcl_SetObjResult(interp, Tcl_NewLongObj(target));
+    Tcl_SetObjResult(interp, Tcl_NewWideIntObj((Tcl_WideInt)target));
   } else {
     Tcl_ResetResult(interp);
   }
@@ -1313,8 +1314,9 @@ int TkDND_FindDropTargetProxyObjCmd(ClientData clientData,
 
   path = TkDND_TkWin(objv[1]);
   if (!path) return TCL_ERROR;
-  if (Tcl_GetLongFromObj(interp, objv[2], (long *) &target) != TCL_OK) {
-    return TCL_ERROR;
+  { Tcl_WideInt _w;
+    if (Tcl_GetWideIntFromObj(interp, objv[2], &_w) != TCL_OK) return TCL_ERROR;
+    target = (Window)_w;
   }
   display = Tk_Display(path);
   proxy = target;
@@ -1334,7 +1336,7 @@ int TkDND_FindDropTargetProxyObjCmd(ClientData clientData,
     }
   }
   if (proxy_ptr) XFree(proxy_ptr);
-  Tcl_SetObjResult(interp, Tcl_NewLongObj(proxy));
+  Tcl_SetObjResult(interp, Tcl_NewWideIntObj((Tcl_WideInt)proxy));
 
   return TCL_OK;
 }; /* TkDND_FindDropTargetProxyObjCmd */
@@ -1432,11 +1434,11 @@ int TkDND_SendXdndEnterObjCmd(ClientData clientData,
 
   source = TkDND_TkWin(objv[1]);
   if (!source) return TCL_ERROR;
-  if (Tcl_GetLongFromObj(interp, objv[2], (long *) &target) != TCL_OK) {
-    return TCL_ERROR;
-  }
-  if (Tcl_GetLongFromObj(interp, objv[3], (long *) &proxy) != TCL_OK) {
-    return TCL_ERROR;
+  { Tcl_WideInt _w;
+    if (Tcl_GetWideIntFromObj(interp, objv[2], &_w) != TCL_OK) return TCL_ERROR;
+    target = (Window)_w;
+    if (Tcl_GetWideIntFromObj(interp, objv[3], &_w) != TCL_OK) return TCL_ERROR;
+    proxy = (Window)_w;
   }
   status = Tcl_ListObjGetElements(interp, objv[4], &types, &type);
   if (status != TCL_OK) return status;
@@ -1447,8 +1449,8 @@ int TkDND_SendXdndEnterObjCmd(ClientData clientData,
                          0, 1, False, AnyPropertyType,
                          &t, &f, &n, &a, &retval);
   if (r != Success) {
-    Tcl_SetResult(interp, "cannot retrieve XDND version from target",
-                  TCL_STATIC);
+    Tcl_SetObjResult(interp, Tcl_NewStringObj(
+                     "cannot retrieve XDND version from target", -1));
     return TCL_ERROR;
   }
   tv = (int *)retval;
@@ -1499,11 +1501,11 @@ int TkDND_SendXdndPositionObjCmd(ClientData clientData,
 
   source = TkDND_TkWin(objv[1]);
   if (!source) return TCL_ERROR;
-  if (Tcl_GetLongFromObj(interp, objv[2], (long *) &target) != TCL_OK) {
-    return TCL_ERROR;
-  }
-  if (Tcl_GetLongFromObj(interp, objv[3], (long *) &proxy) != TCL_OK) {
-    return TCL_ERROR;
+  { Tcl_WideInt _w;
+    if (Tcl_GetWideIntFromObj(interp, objv[2], &_w) != TCL_OK) return TCL_ERROR;
+    target = (Window)_w;
+    if (Tcl_GetWideIntFromObj(interp, objv[3], &_w) != TCL_OK) return TCL_ERROR;
+    proxy = (Window)_w;
   }
   if (Tcl_GetIntFromObj(interp, objv[4], &rootx) != TCL_OK) return TCL_ERROR;
   if (Tcl_GetIntFromObj(interp, objv[5], &rooty) != TCL_OK) return TCL_ERROR;
@@ -1558,11 +1560,11 @@ int TkDND_SendXdndLeaveObjCmd(ClientData clientData,
 
   source = TkDND_TkWin(objv[1]);
   if (!source) return TCL_ERROR;
-  if (Tcl_GetLongFromObj(interp, objv[2], (long *) &target) != TCL_OK) {
-    return TCL_ERROR;
-  }
-  if (Tcl_GetLongFromObj(interp, objv[3], (long *) &proxy) != TCL_OK) {
-    return TCL_ERROR;
+  { Tcl_WideInt _w;
+    if (Tcl_GetWideIntFromObj(interp, objv[2], &_w) != TCL_OK) return TCL_ERROR;
+    target = (Window)_w;
+    if (Tcl_GetWideIntFromObj(interp, objv[3], &_w) != TCL_OK) return TCL_ERROR;
+    proxy = (Window)_w;
   }
 
   memset (&event, 0, sizeof(XEvent));
@@ -1588,11 +1590,11 @@ int TkDND_SendXdndDropObjCmd(ClientData clientData,
 
   source = TkDND_TkWin(objv[1]);
   if (!source) return TCL_ERROR;
-  if (Tcl_GetLongFromObj(interp, objv[2], (long *) &target) != TCL_OK) {
-    return TCL_ERROR;
-  }
-  if (Tcl_GetLongFromObj(interp, objv[3], (long *) &proxy) != TCL_OK) {
-    return TCL_ERROR;
+  { Tcl_WideInt _w;
+    if (Tcl_GetWideIntFromObj(interp, objv[2], &_w) != TCL_OK) return TCL_ERROR;
+    target = (Window)_w;
+    if (Tcl_GetWideIntFromObj(interp, objv[3], &_w) != TCL_OK) return TCL_ERROR;
+    proxy = (Window)_w;
   }
 
   memset (&event, 0, sizeof(XEvent));
@@ -1603,7 +1605,7 @@ int TkDND_SendXdndDropObjCmd(ClientData clientData,
   event.xclient.data.l[0]          = Tk_WindowId(source);
   event.xclient.data.l[2]          = CurrentTime;
   XSendEvent(Tk_Display(source), proxy, False, NoEventMask, &event);
-  Tcl_SetObjResult(interp, Tcl_NewLongObj(event.xclient.data.l[2]));
+  Tcl_SetObjResult(interp, Tcl_NewWideIntObj((Tcl_WideInt)event.xclient.data.l[2]));
   return TCL_OK;
 }; /* TkDND_SendXdndDropObjCmd */
 
@@ -1628,8 +1630,9 @@ int TkDND_XChangePropertyObjCmd(ClientData clientData,
 
   source = TkDND_TkWin(objv[1]);
   if (!source) return TCL_ERROR;
-  if (Tcl_GetLongFromObj(interp, objv[2], (long *) &target) != TCL_OK) {
-    return TCL_ERROR;
+  { Tcl_WideInt _w;
+    if (Tcl_GetWideIntFromObj(interp, objv[2], &_w) != TCL_OK) return TCL_ERROR;
+    target = (Window)_w;
   }
   display  = Tk_Display(source);
   property = Tk_InternAtom(source, Tcl_GetString(objv[3]));
@@ -1638,14 +1641,15 @@ int TkDND_XChangePropertyObjCmd(ClientData clientData,
     return TCL_ERROR;
   }
   if (format != 8 && format != 16 && format != 32) {
-    Tcl_SetResult(interp, "unsupported format: not 8, 16 or 32", TCL_STATIC);
+    Tcl_SetObjResult(interp, Tcl_NewStringObj("unsupported format: not 8, 16 or 32", -1));
     return TCL_ERROR;
   }
   if (Tcl_GetIntFromObj(interp, objv[5], &format) != TCL_OK) {
     return TCL_ERROR;
   }
-  if (Tcl_GetLongFromObj(interp, objv[6], (long *) &time) != TCL_OK) {
-    return TCL_ERROR;
+  { Tcl_WideInt _w;
+    if (Tcl_GetWideIntFromObj(interp, objv[6], &_w) != TCL_OK) return TCL_ERROR;
+    time = (Time)_w;
   }
   if (Tcl_GetIntFromObj(interp, objv[8], &numItems) != TCL_OK) {
     return TCL_ERROR;
@@ -1717,18 +1721,26 @@ int DLLEXPORT Tkdnd_Init(Tcl_Interp *interp) {
 
   if (
 #ifdef USE_TCL_STUBS
-      Tcl_InitStubs(interp, "8.4-", 0)
+#  if TCL_MAJOR_VERSION >= 9
+      Tcl_InitStubs(interp, "9.0", 0)
+#  else
+      Tcl_InitStubs(interp, "8.5", 0)
+#  endif
 #else
-      Tcl_PkgRequire(interp, "Tcl", "8.4-", 0)
+      Tcl_PkgRequire(interp, "Tcl", "8.5", 0)
 #endif /* USE_TCL_STUBS */
             == NULL) {
             return TCL_ERROR;
   }
   if (
 #ifdef USE_TK_STUBS
-       Tk_InitStubs(interp, "8.4-", 0)
+#  if TCL_MAJOR_VERSION >= 9
+       Tk_InitStubs(interp, "9.0", 0)
+#  else
+       Tk_InitStubs(interp, "8.5", 0)
+#  endif
 #else
-       Tcl_PkgRequire(interp, "Tk", "8.4-", 0)
+       Tcl_PkgRequire(interp, "Tk", "8.5", 0)
 #endif /* USE_TK_STUBS */
             == NULL) {
             return TCL_ERROR;
@@ -1746,7 +1758,7 @@ int DLLEXPORT Tkdnd_Init(Tcl_Interp *interp) {
 #endif
 
   if (Tcl_GetCommandInfo(interp, "selection", &info) == 0) {
-    Tcl_SetResult(interp, "selection Tk command not found", TCL_STATIC);
+    Tcl_SetObjResult(interp, Tcl_NewStringObj("selection Tk command not found", -1));
     return TCL_ERROR;
   }
 

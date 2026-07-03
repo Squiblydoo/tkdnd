@@ -40,6 +40,10 @@
 
 #include "OleDND.h"
 
+#ifndef CONST
+#  define CONST const
+#endif
+
 #define TKDND_REPORT_ERROR(x) \
     { Tcl_SetObjResult(interp, Tcl_NewStringObj(x, -1)); }
 
@@ -50,7 +54,7 @@ static void TkDND_OnWindowDestroy(ClientData clientData, XEvent *eventPtr) {
 }; /* TkDND_OnWindowDestroy */
 
 int TkDND_RegisterDragDropObjCmd(ClientData clientData, Tcl_Interp *interp,
-                                 int objc, Tcl_Obj *CONST objv[]) {
+                                 int objc, Tcl_Obj *const objv[]) {
   TkDND_DropTarget *pDropTarget;
   Tk_Window tkwin;
   HRESULT hret;
@@ -63,8 +67,8 @@ int TkDND_RegisterDragDropObjCmd(ClientData clientData, Tcl_Interp *interp,
 
   tkwin = TkDND_TkWin(objv[1]);
   if (tkwin == NULL) {
-    Tcl_AppendResult(interp, "invalid Tk widget path: \"",
-                             Tcl_GetString(objv[1]), (char *) NULL);
+    Tcl_SetObjResult(interp, Tcl_ObjPrintf("invalid Tk widget path: \"%s\"",
+                             Tcl_GetString(objv[1])));
     return TCL_ERROR;
   }
   Tk_MakeWindowExist(tkwin);
@@ -79,13 +83,13 @@ int TkDND_RegisterDragDropObjCmd(ClientData clientData, Tcl_Interp *interp,
   pDropTarget->Release();
   switch (hret) {
     case E_OUTOFMEMORY: {
-      Tcl_AppendResult(interp, "unable to register \"", Tcl_GetString(objv[1]),
-                "\" as a drop target: out of memory", (char *) NULL);
+      Tcl_SetObjResult(interp, Tcl_ObjPrintf("unable to register \"%s\""
+                " as a drop target: out of memory", Tcl_GetString(objv[1])));
       break;
     }
     case DRAGDROP_E_INVALIDHWND: {
-      Tcl_AppendResult(interp, "unable to register \"", Tcl_GetString(objv[1]),
-                "\" as a drop target: invalid window handle", (char *) NULL);
+      Tcl_SetObjResult(interp, Tcl_ObjPrintf("unable to register \"%s\""
+                " as a drop target: invalid window handle", Tcl_GetString(objv[1])));
       break;
     }
     case DRAGDROP_E_ALREADYREGISTERED:
@@ -101,7 +105,7 @@ int TkDND_RegisterDragDropObjCmd(ClientData clientData, Tcl_Interp *interp,
 }; /* TkDND_RegisterDragDropObjCmd */
 
 int TkDND_RevokeDragDropObjCmd(ClientData clientData, Tcl_Interp *interp,
-                                 int objc, Tcl_Obj *CONST objv[]) {
+                                 int objc, Tcl_Obj *const objv[]) {
   Tk_Window tkwin;
   HRESULT hret;
 
@@ -113,15 +117,15 @@ int TkDND_RevokeDragDropObjCmd(ClientData clientData, Tcl_Interp *interp,
 
   tkwin = TkDND_TkWin(objv[1]);
   if (tkwin == NULL) {
-    Tcl_AppendResult(interp, "invalid Tk widget path: \"",
-                             Tcl_GetString(objv[1]), (char *) NULL);
+    Tcl_SetObjResult(interp, Tcl_ObjPrintf("invalid Tk widget path: \"%s\"",
+                             Tcl_GetString(objv[1])));
     return TCL_ERROR;
   }
 
   hret = RevokeDragDrop(Tk_GetHWND(Tk_WindowId(tkwin)));
   if (hret != S_OK) {
-    Tcl_AppendResult(interp, "Tk widget \"", Tcl_GetString(objv[1]),
-              "\" has never been registered as a drop target", (char *) NULL);
+    Tcl_SetObjResult(interp, Tcl_ObjPrintf("Tk widget \"%s\""
+              " has never been registered as a drop target", Tcl_GetString(objv[1])));
     return TCL_ERROR;
   }
   Tk_DeleteEventHandler(tkwin, StructureNotifyMask,
@@ -151,7 +155,7 @@ int TkDND_RevokeDragDropObjCmd(ClientData clientData, Tcl_Interp *interp,
   }
 
 int TkDND_DoDragDropObjCmd(ClientData clientData, Tcl_Interp *interp,
-                           int objc, Tcl_Obj *CONST objv[]) {
+                           int objc, Tcl_Obj *const objv[]) {
   TkDND_DataObject *pDataObject = NULL;
   TkDND_DropSource *pDropSource = NULL;
   Tcl_Obj         **type, **data;
@@ -414,18 +418,26 @@ int DLLEXPORT Tkdnd_Init(Tcl_Interp *interp) {
 
   if (
 #ifdef USE_TCL_STUBS
-      Tcl_InitStubs(interp, "8.4-", 0)
+#  if TCL_MAJOR_VERSION >= 9
+      Tcl_InitStubs(interp, "9.0", 0)
+#  else
+      Tcl_InitStubs(interp, "8.5", 0)
+#  endif
 #else
-      Tcl_PkgRequire(interp, "Tcl", "8.4-", 0)
+      Tcl_PkgRequire(interp, "Tcl", "8.5", 0)
 #endif /* USE_TCL_STUBS */
             == NULL) {
             return TCL_ERROR;
   }
   if (
 #ifdef USE_TK_STUBS
-       Tk_InitStubs(interp, "8.4-", 0)
+#  if TCL_MAJOR_VERSION >= 9
+       Tk_InitStubs(interp, "9.0", 0)
+#  else
+       Tk_InitStubs(interp, "8.5", 0)
+#  endif
 #else
-       Tcl_PkgRequire(interp, "Tk", "8.4-", 0)
+       Tcl_PkgRequire(interp, "Tk", "8.5", 0)
 #endif /* USE_TK_STUBS */
             == NULL) {
             return TCL_ERROR;
@@ -449,8 +461,7 @@ int DLLEXPORT Tkdnd_Init(Tcl_Interp *interp) {
    * If OleInitialize returns S_FALSE, OLE has already been initialized
    */
   if (hret != S_OK && hret != S_FALSE) {
-    Tcl_AppendResult(interp, "unable to initialize OLE2",
-      (char *) NULL);
+    Tcl_SetObjResult(interp, Tcl_NewStringObj("unable to initialize OLE2", -1));
     return TCL_ERROR;
   }
 

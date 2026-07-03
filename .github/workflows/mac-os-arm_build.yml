@@ -1,0 +1,32 @@
+name: macOS-arm-build
+
+on:
+  push:
+    branches: [master, 2.10.0]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: macos-14
+
+    steps:
+      - name: check out git repository
+        uses: actions/checkout@v4
+        
+      - name: build
+        run: |
+          brew reinstall tcl-tk
+          export PATH="/usr/local/opt/tcl-tk/bin:$PATH"
+          export LDFLAGS="-L/usr/local/opt/tcl-tk/lib"
+          export CPPFLAGS="-I/usr/local/opt/tcl-tk/include"
+          export PKG_CONFIG_PATH="/usr/local/opt/tcl-tk/lib/pkgconfig"
+          tclsh tcl-conf-arm
+          make install arch=arm64
+          
+      - name: upload
+        uses: actions/upload-artifact@v4.3.5
+        with:
+          name: macos-arm64
+          path: cmake/runtime/lib/tkdnd2.10.0

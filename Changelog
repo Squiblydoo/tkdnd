@@ -1,3 +1,20 @@
+2026-07-03 Squiblydoo
+        * TkDND 2.10.0 has been released.
+
+        * unix/TkDND_XDND.c:
+        * unix/tkUnixSelect.c:
+        * generic/TkDND_Cursors.c:
+        * win/TkDND_OleDND.cpp:
+        * win/OleDND.h:
+        * macosx/macdnd.m:
+        * library/tkdnd_unix.tcl:
+        * CMakeLists.txt: Completed Tcl 9 compatibility: replaced all
+	deprecated Tcl 8 APIs (Tcl_NewLongObj, Tcl_GetLongFromObj,
+	Tcl_SetResult, Tcl_AppendResult, Tcl_SetVar, CONST86), fixed
+	Tcl_InitStubs/Tk_InitStubs version negotiation for Tcl 9 major
+	version, updated "unicode" encoding alias to "utf-16", and replaced
+	hardcoded Tk framework paths with dynamic CMake detection.
+
 2025-01-04 Petasis George  <petasis@iit.demokritos.gr>
         * win/OleDND.h: Improved support for Tcl 9. (Pull request by Github
 	user apnadkarni - https://github.com/petasis/tkdnd/pull/72).
