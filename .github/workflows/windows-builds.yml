@@ -59,6 +59,80 @@ jobs:
           name: ${{ matrix.artifact }}
           path: runtime/tkdnd2.10.0
 
+  build-tcl9:
+    name: Build (Windows ${{ matrix.arch }} Tcl9)
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            msvc_arch: amd64
+            machine: X64
+            artifact: windows-x64-tcl9
+          - arch: x86
+            msvc_arch: x86
+            machine: X86
+            artifact: windows-x86-tcl9
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install native tclsh (for cmake FindTCL)
+        run: |
+          curl.exe -L -o irontcl-native.zip https://www.irontcl.com/downloads/irontcl-amd64-8.6.7.zip
+          Expand-Archive irontcl-native.zip -DestinationPath irontcl-native
+
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
+
+      - name: Build Tcl 9 stub library
+        run: |
+          curl.exe -L -o tcl9.tar.gz https://prdownloads.sourceforge.net/tcl/tcl9.0.1-src.tar.gz
+          tar xzf tcl9.tar.gz
+          cl.exe /c /nologo /MT /O2 `
+            /I"tcl9.0.1\generic" /I"tcl9.0.1\win" `
+            "tcl9.0.1\generic\tclStubLib.c" /Fo"tclstub90.obj"
+          lib.exe /nologo /MACHINE:${{ matrix.machine }} /OUT:"tclstub90.lib" "tclstub90.obj"
+
+      - name: Build Tk 9 stub library
+        run: |
+          curl.exe -L -o tk9.tar.gz https://prdownloads.sourceforge.net/tcl/tk9.0.1-src.tar.gz
+          tar xzf tk9.tar.gz
+          cl.exe /c /nologo /MT /O2 `
+            /I"tk9.0.1\generic" /I"tk9.0.1\win" /I"tk9.0.1\xlib" /I"tcl9.0.1\generic" /I"tcl9.0.1\win" `
+            "tk9.0.1\generic\tkStubLib.c" /Fo"tkstub90.obj"
+          lib.exe /nologo /MACHINE:${{ matrix.machine }} /OUT:"tkstub90.lib" "tkstub90.obj"
+
+      - name: Configure TkDND for ${{ matrix.arch }} Tcl9
+        run: |
+          cmake -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DTCL_INCLUDE_PATH="${{ github.workspace }}\tcl9.0.1\generic" `
+            -DTCL_LIBRARY="${{ github.workspace }}\tclstub90.lib" `
+            -DTCL_STUB_LIBRARY="${{ github.workspace }}\tclstub90.lib" `
+            -DTCL_TCLSH="${{ github.workspace }}\irontcl-native\IronTcl\bin\tclsh86t.exe" `
+            -DTK_INCLUDE_PATH="${{ github.workspace }}\tk9.0.1\generic" `
+            -DTK_LIBRARY="${{ github.workspace }}\tkstub90.lib" `
+            -DTK_STUB_LIBRARY="${{ github.workspace }}\tkstub90.lib" `
+            -DTK_WISH="${{ github.workspace }}\irontcl-native\IronTcl\bin\wish86t.exe" `
+            -DCMAKE_INSTALL_PREFIX=runtime `
+            -B build .
+
+      - name: Build and install
+        run: |
+          cmake --build build
+          cmake --install build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.3.5
+        with:
+          name: ${{ matrix.artifact }}
+          path: runtime/tkdnd2.10.0
+
   build-arm64:
     name: Build (Windows ARM64)
     runs-on: windows-latest

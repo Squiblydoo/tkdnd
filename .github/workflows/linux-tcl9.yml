@@ -5,6 +5,7 @@ on:
     branches: [master, 2.10.0]
   pull_request:
     branches: [master]
+  workflow_dispatch:
 
 jobs:
   build-tcl9:
@@ -62,6 +63,8 @@ jobs:
             --with-tk=$HOME/tcl9/lib \
             --with-tclinclude=$HOME/tcl9/include \
             --with-tkinclude=$HOME/tcl9/include \
+            --prefix=${{ github.workspace }}/install \
+            --exec-prefix=${{ github.workspace }}/install \
             --enable-64bit
           make -j$(nproc)
           make install
@@ -70,12 +73,96 @@ jobs:
         run: |
           Xvfb :99 -screen 0 1024x768x24 &
           sleep 1
-          DISPLAY=:99 $HOME/tcl9/bin/tclsh9.0 <<'EOF'
+          DISPLAY=:99 TCLLIBPATH="${{ github.workspace }}/install/lib" $HOME/tcl9/bin/tclsh9.0 <<'EOF'
           package require Tk
           package require tkdnd
           puts "OK: tkdnd [package version tkdnd] under Tcl [info patchlevel] / Tk [package version Tk]"
           exit
           EOF
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.3.5
+        with:
+          name: linux-x86_64-tcl9
+          path: install/lib/tkdnd2.10.0
+
+  build-tcl9-arm64:
+    name: Build and test (Tcl 9 / Linux arm64)
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libx11-dev libxss-dev libxft-dev libfontconfig-dev \
+            libxcursor-dev xvfb
+
+      - name: Cache Tcl/Tk 9 build
+        uses: actions/cache@v4
+        id: cache-tcl9
+        with:
+          path: |
+            ~/tcl9
+            /tmp/tk9.0.1/generic
+          key: tcl9-9.0.1-tk-9.0.1-ubuntu-24.04-arm-v1
+
+      - name: Build Tcl 9.0.1
+        if: steps.cache-tcl9.outputs.cache-hit != 'true'
+        run: |
+          cd /tmp
+          wget -q https://prdownloads.sourceforge.net/tcl/tcl9.0.1-src.tar.gz
+          tar xzf tcl9.0.1-src.tar.gz
+          cd tcl9.0.1/unix
+          ./configure --prefix=$HOME/tcl9 --enable-64bit
+          make -j$(nproc)
+          make install
+
+      - name: Build Tk 9.0.1
+        if: steps.cache-tcl9.outputs.cache-hit != 'true'
+        run: |
+          cd /tmp
+          wget -q https://prdownloads.sourceforge.net/tcl/tk9.0.1-src.tar.gz
+          tar xzf tk9.0.1-src.tar.gz
+          cd tk9.0.1/unix
+          ./configure --prefix=$HOME/tcl9 --with-tcl=$HOME/tcl9/lib --enable-64bit
+          make -j$(nproc)
+          make install
+          cp ../generic/tkInt*.h $HOME/tcl9/include/
+
+      - name: Build TkDND
+        run: |
+          ./configure \
+            --with-tcl=$HOME/tcl9/lib \
+            --with-tk=$HOME/tcl9/lib \
+            --with-tclinclude=$HOME/tcl9/include \
+            --with-tkinclude=$HOME/tcl9/include \
+            --prefix=${{ github.workspace }}/install \
+            --exec-prefix=${{ github.workspace }}/install \
+            --enable-64bit
+          make -j$(nproc)
+          make install
+
+      - name: Test — package loads under Tcl 9
+        run: |
+          Xvfb :99 -screen 0 1024x768x24 &
+          sleep 1
+          DISPLAY=:99 TCLLIBPATH="${{ github.workspace }}/install/lib" $HOME/tcl9/bin/tclsh9.0 <<'EOF'
+          package require Tk
+          package require tkdnd
+          puts "OK: tkdnd [package version tkdnd] under Tcl [info patchlevel] / Tk [package version Tk]"
+          exit
+          EOF
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.3.5
+        with:
+          name: linux-arm64-tcl9
+          path: install/lib/tkdnd2.10.0
 
   build-tcl86:
     name: Build and test (Tcl 8.6 / Linux x64)
