@@ -1,0 +1,48 @@
+name: linux-builds
+
+on:
+  push:
+    branches: [master, 2.10.0]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            artifact: linux-x86_64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            artifact: linux-arm64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            tcl tcl-dev tk tk-dev \
+            build-essential libxcursor-dev
+
+      - name: Build
+        run: |
+          ./configure \
+            --prefix=${{ github.workspace }}/cmake/runtime \
+            --exec-prefix=${{ github.workspace }}/cmake/runtime
+          make -j$(nproc)
+          make install
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.3.5
+        with:
+          name: ${{ matrix.artifact }}
+          path: cmake/runtime/lib/tkdnd2.10.0

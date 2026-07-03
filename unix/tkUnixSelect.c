@@ -297,7 +297,7 @@ TkDNDSelGetSelection(
 
     XFlush(display);
     if (XGetSelectionOwner(display, selection) == None) {
-      Tcl_SetResult(interp, "no owner for selection", TCL_STATIC);
+      Tcl_SetObjResult(interp, Tcl_NewStringObj("no owner for selection", -1));
       return TCL_ERROR;
     }
     /*
@@ -380,14 +380,14 @@ TkDND_SelTimeoutProc(
 	 * selection return.
 	 */
 
-	Tcl_SetResult(retrPtr->interp, "selection owner didn't respond",
-		TCL_STATIC);
+	Tcl_SetObjResult(retrPtr->interp,
+		Tcl_NewStringObj("selection owner didn't respond", -1));
 	retrPtr->result = TCL_ERROR;
         retrPtr->timeout = NULL;
 
     } else {
 	retrPtr->timeout = Tcl_CreateTimerHandler(1000, TkDND_SelTimeoutProc,
-		(ClientData) retrPtr);
+		retrPtr);
     }
 }
 

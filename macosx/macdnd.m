@@ -510,7 +510,7 @@ const NSString *TKDND_Obj2NSString(Tcl_Interp *interp, Tcl_Obj *obj) {
 
   objv[0] = Tcl_NewStringObj("::tkdnd::macdnd::HandleEnter", -1);
   objv[1] = Tcl_NewStringObj(Tk_PathName(tkwin), -1);
-  objv[2] = Tcl_NewLongObj(0);
+  objv[2] = Tcl_NewWideIntObj(0);
   objv[3] = Tcl_NewListObj(0, NULL);
   /*
    * Search for known types...
@@ -804,7 +804,7 @@ const NSString *TKDND_Obj2NSString(Tcl_Interp *interp, Tcl_Obj *obj) {
 
   objv[0] = Tcl_NewStringObj("::tkdnd::macdnd::HandleLeave", -1);
   objv[1] = Tcl_NewStringObj(Tk_PathName(tkwin), -1);
-  objv[2] = Tcl_NewLongObj(0);
+  objv[2] = Tcl_NewWideIntObj(0);
   objv[3] = Tcl_NewListObj(0, NULL);
 
   /* Evaluate the command and get the result...*/
@@ -962,8 +962,8 @@ int TkDND_DoDragDropObjCmd(ClientData clientData, Tcl_Interp *interp,
         if (status != TCL_OK) return TCL_ERROR;
         for (j = 0; j < files_elem_nu; j++) {
           if (*Tcl_GetString(files_elem[j]) != '/') {
-            Tcl_SetResult(interp, "path is not absolute: \"", TCL_STATIC);
-            Tcl_AppendResult(interp, Tcl_GetString(files_elem[j]), "\"", (char *) NULL);
+            Tcl_SetObjResult(interp, Tcl_ObjPrintf("path is not absolute: \"%s\"",
+                             Tcl_GetString(files_elem[j])));
             return TCL_ERROR;
           }
         }
@@ -974,7 +974,7 @@ int TkDND_DoDragDropObjCmd(ClientData clientData, Tcl_Interp *interp,
 
   if (!perform_drag) {
     /* No need to start a drag, the clipboard will be empty... */
-    Tcl_SetResult(interp, "refuse_drop", TCL_STATIC);
+    Tcl_SetObjResult(interp, Tcl_NewStringObj("refuse_drop", -1));
     return TCL_OK;
   }
 
@@ -1505,11 +1505,19 @@ int TkDND_GenericType2OStypeObjCmd(ClientData clientData, Tcl_Interp *interp,
  */
 int Tkdnd_Init (Tcl_Interp *interp) {
 
-  if (Tcl_InitStubs(interp, "8.5-", 0) == NULL) {
+#if TCL_MAJOR_VERSION >= 9
+  if (Tcl_InitStubs(interp, "9.0", 0) == NULL) {
+#else
+  if (Tcl_InitStubs(interp, "8.5", 0) == NULL) {
+#endif
     return TCL_ERROR;
   }
 
-  if (Tk_InitStubs(interp, "8.5-", 0) == NULL) {
+#if TCL_MAJOR_VERSION >= 9
+  if (Tk_InitStubs(interp, "9.0", 0) == NULL) {
+#else
+  if (Tk_InitStubs(interp, "8.5", 0) == NULL) {
+#endif
     return TCL_ERROR;
   }
 
