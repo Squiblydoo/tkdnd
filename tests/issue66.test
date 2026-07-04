@@ -1,0 +1,47 @@
+# issue66.test --
+#
+#    Regression test for petasis/tkdnd issue #66: dragging files to a GTK3
+#    (or other non-Tk) application was silently ignored because
+#    xdnd::getFormatForType mapped "text/uri-list" to the X selection format
+#    UTF8_STRING, which Tk uses as the property's *type* atom in the
+#    SelectionNotify reply -- so the requester saw the reply typed as
+#    UTF8_STRING instead of text/uri-list and got back an empty URI list.
+#
+#    This is a pure-Tcl unit test of xdnd::getFormatForType and requires no
+#    real drag/drop interaction, only the X11 (xdnd) platform layer, which
+#    tkdnd only loads under the x11 windowing system.
+
+package require Tk
+package require tcltest 2.2
+namespace import ::tcltest::*
+
+package require tkdnd
+
+testConstraint x11 [expr {[tk windowingsystem] eq "x11"}]
+
+test issue66-1.1 {getFormatForType keeps text/uri-list as its own MIME type} \
+    -constraints x11 \
+    -body { ::tkdnd::xdnd::getFormatForType text/uri-list } \
+    -result {text/uri-list}
+
+test issue66-1.2 {getFormatForType keeps a text/uri-list variant unchanged} \
+    -constraints x11 \
+    -body { ::tkdnd::xdnd::getFormatForType {text/uri-list;extra=1} } \
+    -result {text/uri-list;extra=1}
+
+test issue66-1.3 {getFormatForType still maps UTF8_STRING to UTF8_STRING} \
+    -constraints x11 \
+    -body { ::tkdnd::xdnd::getFormatForType UTF8_STRING } \
+    -result {UTF8_STRING}
+
+test issue66-1.4 {getFormatForType still maps text/plain to STRING} \
+    -constraints x11 \
+    -body { ::tkdnd::xdnd::getFormatForType text/plain } \
+    -result {STRING}
+
+test issue66-1.5 {getFormatForType passes an unknown type through unchanged} \
+    -constraints x11 \
+    -body { ::tkdnd::xdnd::getFormatForType application/octet-stream } \
+    -result {application/octet-stream}
+
+cleanupTests
