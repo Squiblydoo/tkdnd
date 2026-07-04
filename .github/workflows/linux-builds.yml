@@ -2,7 +2,7 @@ name: linux-builds
 
 on:
   push:
-    branches: [master, 2.10.0]
+    branches: [master, 2.10.1]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             tcl tcl-dev tk tk-dev \
-            build-essential libxcursor-dev
+            build-essential libxcursor-dev xvfb
 
       - name: Build
         run: |
@@ -41,8 +41,18 @@ jobs:
           make -j$(nproc)
           make install
 
+      - name: Check configure output (issue #76 regression)
+        run: bash tests/check_configure_output.sh config.log
+
+      - name: Run Tcl-level regression tests (issues #6, #66, #77)
+        run: |
+          Xvfb :99 -screen 0 1024x768x24 &
+          sleep 1
+          DISPLAY=:99 TCLLIBPATH="${{ github.workspace }}/cmake/runtime/lib" \
+            tclsh tests/all.tcl
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4.3.5
         with:
           name: ${{ matrix.artifact }}
-          path: cmake/runtime/lib/tkdnd2.10.0
+          path: cmake/runtime/lib/tkdnd2.10.1

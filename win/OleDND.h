@@ -59,6 +59,7 @@
 #include <wchar.h>
 
 #include <string>
+#include <vector>
 
 #ifdef DND_ENABLE_DROP_TARGET_HELPER
 #include <atlbase.h>
@@ -1224,7 +1225,6 @@ private:
         if (pDataObject->GetData(&fmte, &StgMed) == S_OK) {
           HDROP hdrop;
           UINT cFiles;
-          WCHAR szFile[MAX_PATH+2];
           Tcl_Obj *result, *item;
           WCHAR *p;
 
@@ -1238,9 +1238,26 @@ private:
           result = Tcl_NewListObj(0, NULL);
 
           for (UINT count = 0; count < cFiles; count++) {
-            if (::DragQueryFileW(hdrop, count, szFile, sizeof(szFile)) == 0) {
-              /* Empty slot? or error, skip */
+            // Query the required length (in characters, excluding the
+            // terminator) for this file, since paths can exceed MAX_PATH.
+            UINT len = ::DragQueryFileW(hdrop, count, NULL, 0);
+            if (len == 0) continue; /* Empty slot? or error, skip */
+            std::vector<WCHAR> buf(len + 1);
+            if (::DragQueryFileW(hdrop, count, buf.data(),
+                                  (UINT) buf.size()) == 0) {
               continue;
+            }
+            // The shell can hand back a short (8.3) name for paths that
+            // exceed the legacy MAX_PATH limit. Normalize back to the long
+            // name when possible so callers get the real path.
+            WCHAR *szFile = buf.data();
+            std::vector<WCHAR> longBuf;
+            DWORD longLen = ::GetLongPathNameW(buf.data(), NULL, 0);
+            if (longLen > 0) {
+              longBuf.resize(longLen);
+              if (::GetLongPathNameW(buf.data(), longBuf.data(), longLen) > 0) {
+                szFile = longBuf.data();
+              }
             }
             for (p = szFile; *p; p++) {
               if (*p == L'\\') *p = L'/';

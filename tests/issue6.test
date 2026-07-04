@@ -1,0 +1,65 @@
+# issue6.test --
+#
+#    Regression test for petasis/tkdnd issue #6: the X11 pointer grab taken
+#    for a drag was made directly on the drag source's own window
+#    (_grab_pointer $source ...). X automatically drops a grab once its
+#    window becomes unviewable, so unmapping the source (e.g. switching
+#    virtual desktops via a pager, or the source's toplevel being destroyed)
+#    broke the whole drag.
+#
+#    The fix grabs the pointer on a small, dedicated, always-viewable
+#    offscreen override-redirect toplevel (xdnd::_create_grab_window)
+#    instead, so the grab's validity no longer depends on the source
+#    widget's lifecycle. These tests exercise that helper and the
+#    grab/ungrab pair directly; they need a real X11 display (Xvfb is fine)
+#    but no actual mouse interaction.
+
+package require Tk
+package require tcltest 2.2
+namespace import ::tcltest::*
+
+package require tkdnd
+
+testConstraint x11 [expr {[tk windowingsystem] eq "x11"}]
+
+test issue6-1.1 {_create_grab_window returns a mapped, override-redirect toplevel} \
+    -constraints x11 \
+    -body {
+      set w [::tkdnd::xdnd::_create_grab_window]
+      list [winfo exists $w] [wm overrideredirect $w] [winfo ismapped $w]
+    } \
+    -result {1 1 1}
+
+test issue6-1.2 {_create_grab_window is a lazily-created singleton} \
+    -constraints x11 \
+    -body {
+      expr {[::tkdnd::xdnd::_create_grab_window] eq [::tkdnd::xdnd::_create_grab_window]}
+    } \
+    -result {1}
+
+test issue6-1.3 {pointer grab succeeds against the offscreen grab window} \
+    -constraints x11 \
+    -body {
+      set w [::tkdnd::xdnd::_create_grab_window]
+      set code [catch {_grab_pointer $w default} err]
+      if {$code == 0} { _ungrab_pointer $w }
+      list $code $err
+    } \
+    -result {0 {}}
+
+test issue6-1.4 {grab window keeps working after an unrelated toplevel is destroyed mid-drag} \
+    -constraints x11 \
+    -body {
+      toplevel .issue6_source
+      set gw [::tkdnd::xdnd::_create_grab_window]
+      _grab_pointer $gw default
+      # Simulate the drag source's toplevel disappearing mid-drag (closed
+      # via a WM shortcut, or unmapped by a virtual desktop switch): the
+      # grab window's validity must not depend on it.
+      destroy .issue6_source
+      set code [catch {_ungrab_pointer $gw} err]
+      list $code $err
+    } \
+    -result {0 {}}
+
+cleanupTests

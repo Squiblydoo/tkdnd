@@ -2,7 +2,7 @@ name: windows-builds
 
 on:
   push:
-    branches: [master, 2.10.0]
+    branches: [master, 2.10.1]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -57,7 +57,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: ${{ matrix.artifact }}
-          path: runtime/tkdnd2.10.0
+          path: runtime/tkdnd2.10.1
 
   build-tcl9:
     name: Build (Windows ${{ matrix.arch }} Tcl9)
@@ -131,7 +131,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: ${{ matrix.artifact }}
-          path: runtime/tkdnd2.10.0
+          path: runtime/tkdnd2.10.1
 
   build-arm64:
     name: Build (Windows ARM64)
@@ -194,4 +194,4 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: windows-arm64
-          path: runtime/tkdnd2.10.0
+          path: runtime/tkdnd2.10.1

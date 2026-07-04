@@ -1,0 +1,54 @@
+# issue77.test --
+#
+#    Regression test for petasis/tkdnd issue #77: drops often failed to
+#    trigger on Wayland/XWayland. Root cause: xdnd::HandleXdndDrop reads the
+#    in-flight drop state, then calls GetDroppedData, which pumps the Tk
+#    event queue while it waits for the SelectionNotify round-trip. If a
+#    queued XdndLeave is processed during that wait, generic::HandleLeave
+#    resets the drop state before HandleDrop gets to use it, so the drop is
+#    spuriously refused.
+#
+#    The fix snapshots the state via generic::GetDropState before the
+#    blocking fetch and restores it via generic::RestoreDropState if it was
+#    wiped. This test exercises that snapshot/restore pair directly -- it is
+#    pure Tcl state manipulation in the platform-independent generic layer,
+#    so it needs no real X11/Wayland drag/drop interaction and runs on every
+#    platform.
+
+package require Tk
+package require tcltest 2.2
+namespace import ::tcltest::*
+
+package require tkdnd
+
+test issue77-1.1 {GetDropState/RestoreDropState round-trip the drop state} \
+    -setup {
+      set ::tkdnd::generic::_types                    {DND_Files}
+      set ::tkdnd::generic::_typelist                 {text/uri-list}
+      set ::tkdnd::generic::_actionlist               {copy move}
+      set ::tkdnd::generic::_action                   copy
+      set ::tkdnd::generic::_common_drag_source_types {DND_Files}
+      set ::tkdnd::generic::_common_drop_target_types {DND_Files}
+      set ::tkdnd::generic::_drag_source              .issue77_src
+      set ::tkdnd::generic::_drop_target               .issue77_dst
+    } \
+    -body {
+      set state [::tkdnd::generic::GetDropState]
+      # Simulate what generic::HandleLeave does when a spurious <Leave>
+      # is processed while a drop's data fetch is still in flight.
+      foreach var {_types _typelist _actionlist _action
+                   _common_drag_source_types _common_drop_target_types
+                   _drag_source _drop_target} {
+        set ::tkdnd::generic::$var {}
+      }
+      set wiped_drop_target [::tkdnd::generic::GetDropTarget]
+      ::tkdnd::generic::RestoreDropState $state
+      list $wiped_drop_target \
+           [::tkdnd::generic::GetDropTarget] \
+           [::tkdnd::generic::GetDragSource] \
+           [::tkdnd::generic::GetDragSourceCommonTypes] \
+           [::tkdnd::generic::GetDropTargetCommonTypes]
+    } \
+    -result {{} .issue77_dst .issue77_src DND_Files DND_Files}
+
+cleanupTests
