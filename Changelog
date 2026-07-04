@@ -1,3 +1,63 @@
+2026-07-04 Squiblydoo
+        * TkDND 2.10.1 has been released.
+
+        * library/tkdnd_unix.tcl: Stopped forcing the X selection format for
+	text/uri-list to UTF8_STRING, which caused the reply's property type
+	to be reported as UTF8_STRING instead of text/uri-list, so file drops
+	onto GTK3 (and other non-Tk) applications were silently ignored.
+	Fixes issue #66.
+
+        * configure.ac: Removed the dead intptr_t/uintptr_t AC_CHECK_TYPE
+	block, which ran after TEA_MAKE_LIB had already poisoned CFLAGS with
+	unexpanded variables, so every check in it always failed and
+	configure reported "none"; PTR2INT/INT2PTR are not used anywhere in
+	this codebase. Fixes issue #76.
+
+        * unix/TkDND_XDND.c: Routed all XDND XSendEvent calls through a new
+	TkDND_SendEvent() helper that installs a Tk error handler ignoring
+	BadWindow/BadDrawable, so a queued XDND message racing a target
+	window's destruction (e.g. moving the mouse while dropping a file)
+	no longer crashes the application. Fixes issue #79.
+
+        * win/OleDND.h: GetData_CF_HDROP now queries the required buffer
+	length per file (also fixing a latent bug where a byte count was
+	passed as a character count to DragQueryFileW) and normalizes any
+	short (8.3) name the shell hands back for long paths via
+	GetLongPathNameW. Fixes issue #51.
+
+        * library/tkdnd_unix.tcl: The pointer grab taken for a drag is now
+	made on a dedicated, always-viewable offscreen override-redirect
+	toplevel (xdnd::_create_grab_window) instead of the drag source
+	widget itself, so the grab -- and the whole drag -- no longer breaks
+	if the source widget is unmapped mid-drag (e.g. by switching virtual
+	desktops) or destroyed outright. Fixes issue #6.
+
+        * library/tkdnd_generic.tcl:
+        * library/tkdnd_unix.tcl: Added generic::GetDropState and
+	generic::RestoreDropState, used in xdnd::HandleXdndDrop to snapshot
+	the in-flight drop state before the blocking dropped-data fetch and
+	restore it if a queued XdndLeave was processed during that wait and
+	reset it -- a race that made drops intermittently fail to trigger
+	under Wayland/XWayland. Fixes issue #77.
+
+        * tests/issue66.test:
+        * tests/issue6.test:
+        * tests/issue77.test:
+        * tests/check_configure_output.sh: Added regression tests/checks for
+	the fixes above.
+
+        * .github/workflows/linux-builds.yml:
+        * .github/workflows/linux-tcl9.yml: Wired the new regression tests
+	and the configure-output check into CI, and bumped the version used
+	in the push-trigger branch list and artifact paths to 2.10.1.
+
+        * .github/workflows/mac-os-arm_build.yml:
+        * .github/workflows/windows-builds.yml: Bumped the version used in
+	the push-trigger branch list and artifact paths to 2.10.1.
+
+        * VERSION: Bumped version to 2.10.1.
+
+
 2026-07-03 Squiblydoo
         * TkDND 2.10.0 has been released.
 
