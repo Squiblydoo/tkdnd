@@ -3,17 +3,14 @@ TkDND is an extension that adds native drag & drop capabilities to the [Tk](http
 
 It can be used with any Tk version equal or greater to **8.4** and currently only the UNIX (X-Windows), Microsoft Windows (XP, Vista, 7, 8, 8.1, 10, 11) and macOS (10.5+) operating systems are supported (under macOS Tk version **8.5** is required).
 
-## Current Travis/AppVeyor CI build status for TkDND:
+## Current GitHub Actions CI build status for TkDND:
 
-| OS | Master Branch |
----|---
-| Linux, x86, x86-64, Tcl/Tk 8.6 <br> Windows, x86, x86-64, Tcl/Tk 8.6 <br> macOS Sonoma, x86-64, Tcl/Tk 9.0 (Homebrew) | [![Build status](https://ci.appveyor.com/api/projects/status/vfnx40w79dqsox1y/branch/master?svg=true)](https://ci.appveyor.com/project/petasis/tkdnd/branch/master) |
-<!---
-
-[//]: # (| Linux: Ubuntu Xenial 16.04, x86-64, Tcl/Tk 8.6 | [![Build Status](https://app.travis-ci.com/petasis/tkdnd.svg?branch=master)](https://app.travis-ci.com/github/petasis/tkdnd) |)
-[//]: # (| macOS: macOS 10.13, x86-64, Tcl/Tk 8.5 | [![Build Status](https://app.travis-ci.com/petasis/tkdnd.svg?branch=master)](https://app.travis-ci.com/github/petasis/tkdnd) |)
-[//]: # (| macOS: macOS 12.6, x86-64, Tcl/Tk 8.6 (Homebrew) | [![Build Status](https://app.travis-ci.com/petasis/tkdnd.svg?branch=master)](https://app.travis-ci.com/github/petasis/tkdnd) |)
--->
+| Workflow | Platforms & Tcl/Tk versions built | Status |
+---|---|---
+| [linux-builds](https://github.com/Squiblydoo/tkdnd/actions/workflows/linux-builds.yml) | Linux x86-64, ARM64 — Tcl/Tk 8.6 (system packages) | [![linux-builds](https://github.com/Squiblydoo/tkdnd/actions/workflows/linux-builds.yml/badge.svg?branch=master)](https://github.com/Squiblydoo/tkdnd/actions/workflows/linux-builds.yml?query=branch%3Amaster) |
+| [linux-tcl9](https://github.com/Squiblydoo/tkdnd/actions/workflows/linux-tcl9.yml) | Linux x86-64, ARM64 — Tcl/Tk 9.0.1 <br> Linux x86-64 — Tcl/Tk 8.6 | [![linux-tcl9](https://github.com/Squiblydoo/tkdnd/actions/workflows/linux-tcl9.yml/badge.svg?branch=master)](https://github.com/Squiblydoo/tkdnd/actions/workflows/linux-tcl9.yml?query=branch%3Amaster) |
+| [macOS-arm-build](https://github.com/Squiblydoo/tkdnd/actions/workflows/mac-os-arm_build.yml) | macOS (arm64) — Tcl/Tk 8.6 and Tcl/Tk 9.0 (Homebrew) | [![macOS-arm-build](https://github.com/Squiblydoo/tkdnd/actions/workflows/mac-os-arm_build.yml/badge.svg?branch=master)](https://github.com/Squiblydoo/tkdnd/actions/workflows/mac-os-arm_build.yml?query=branch%3Amaster) |
+| [windows-builds](https://github.com/Squiblydoo/tkdnd/actions/workflows/windows-builds.yml) | Windows x86, x86-64 — Tcl/Tk 8.6 (IronTcl) <br> Windows x86, x86-64, ARM64 — Tcl/Tk 9.0.1 | [![windows-builds](https://github.com/Squiblydoo/tkdnd/actions/workflows/windows-builds.yml/badge.svg?branch=master)](https://github.com/Squiblydoo/tkdnd/actions/workflows/windows-builds.yml?query=branch%3Amaster) |
 
 ## Installation
 ### Requirements
