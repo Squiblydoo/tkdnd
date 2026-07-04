@@ -154,6 +154,29 @@ Tcl_Interp * TkDND_Interp(Tk_Window tkwin) {
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
 /*
+ * Sending an XDND client message can race with the target window going
+ * away (e.g. a queued XdndPosition arriving after the drop already
+ * destroyed/unmapped the target), which otherwise kills the whole
+ * application with an unhandled BadWindow/BadDrawable X error. Route all
+ * XDND XSendEvent calls through here so such errors are ignored instead.
+ */
+static int TkDND_IgnoreWindowErrorProc(ClientData clientData,
+                                        XErrorEvent *errEventPtr) {
+  return 0;
+} /* TkDND_IgnoreWindowErrorProc */
+
+static void TkDND_SendEvent(Display *display, Window w, Bool propagate,
+                             long event_mask, XEvent *event_send) {
+  Tk_ErrorHandler handler_bw = Tk_CreateErrorHandler(display, BadWindow, -1, -1,
+                                   TkDND_IgnoreWindowErrorProc, NULL);
+  Tk_ErrorHandler handler_bd = Tk_CreateErrorHandler(display, BadDrawable, -1, -1,
+                                   TkDND_IgnoreWindowErrorProc, NULL);
+  XSendEvent(display, w, propagate, event_mask, event_send);
+  Tk_DeleteErrorHandler(handler_bw);
+  Tk_DeleteErrorHandler(handler_bd);
+} /* TkDND_SendEvent */
+
+/*
  * XDND Section
  */
 #define XDND_VERSION 5
@@ -613,7 +636,7 @@ int TkDND_HandleXdndPosition(Tk_Window tkwin, XEvent *xevent) {
       XDND_STATUS_ACTION(&response) = None;
     }
   }
-  XSendEvent(response.xany.display, response.xclient.window,
+  TkDND_SendEvent(response.xany.display, response.xclient.window,
              False, NoEventMask, (XEvent*)&response);
   return True;
 } /* TkDND_HandleXdndPosition */
@@ -701,7 +724,7 @@ int TkDND_HandleXdndDrop(Tk_Window tkwin, XEvent *xevent) {
     XDND_FINISHED_ACTION(&finished) = None;
   }
   /* Send XdndFinished. */
-  XSendEvent(Tk_Display(tkwin), finished.xclient.window,
+  TkDND_SendEvent(Tk_Display(tkwin), finished.xclient.window,
              False, NoEventMask, (XEvent*)&finished);
   return True;
 } /* TkDND_HandleXdndDrop */
@@ -1471,7 +1494,7 @@ int TkDND_SendXdndEnterObjCmd(ClientData clientData,
   for (i = 0; i < types && i < 3; ++i) {
     event.xclient.data.l[2+i] = Tk_InternAtom(source, Tcl_GetString(type[i]));
   }
-  XSendEvent(display, proxy, False, NoEventMask, &event);
+  TkDND_SendEvent(display, proxy, False, NoEventMask, &event);
 
   return TCL_OK;
 }; /* TkDND_SendXdndEnterObjCmd */
@@ -1542,7 +1565,7 @@ int TkDND_SendXdndPositionObjCmd(ClientData clientData,
           Tk_InternAtom(source, "XdndActionPrivate"); break;
   }
 
-  XSendEvent(display, proxy, False, NoEventMask, &event);
+  TkDND_SendEvent(display, proxy, False, NoEventMask, &event);
 
   return TCL_OK;
 }; /* TkDND_SendXdndPositionObjCmd */
@@ -1573,7 +1596,7 @@ int TkDND_SendXdndLeaveObjCmd(ClientData clientData,
   event.xclient.format             = 32;
   event.xclient.message_type       = Tk_InternAtom(source, "XdndLeave");
   event.xclient.data.l[0]          = Tk_WindowId(source);
-  XSendEvent(Tk_Display(source), proxy, False, NoEventMask, &event);
+  TkDND_SendEvent(Tk_Display(source), proxy, False, NoEventMask, &event);
   return TCL_OK;
 }; /* TkDND_SendXdndLeaveObjCmd */
 
@@ -1604,7 +1627,7 @@ int TkDND_SendXdndDropObjCmd(ClientData clientData,
   event.xclient.message_type       = Tk_InternAtom(source, "XdndDrop");
   event.xclient.data.l[0]          = Tk_WindowId(source);
   event.xclient.data.l[2]          = CurrentTime;
-  XSendEvent(Tk_Display(source), proxy, False, NoEventMask, &event);
+  TkDND_SendEvent(Tk_Display(source), proxy, False, NoEventMask, &event);
   Tcl_SetObjResult(interp, Tcl_NewWideIntObj((Tcl_WideInt)event.xclient.data.l[2]));
   return TCL_OK;
 }; /* TkDND_SendXdndDropObjCmd */
@@ -1697,7 +1720,7 @@ int TkDND_XChangePropertyObjCmd(ClientData clientData,
   event.xselection.target    = type;
   event.xselection.property  = property;
   event.xselection.time      = time;
-  XSendEvent(display, target, False, NoEventMask, &event);
+  TkDND_SendEvent(display, target, False, NoEventMask, &event);
   return TCL_OK;
 }; /* TkDND_XChangePropertyObjCmd */
 
