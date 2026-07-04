@@ -177,6 +177,36 @@ static void TkDND_SendEvent(Display *display, Window w, Bool propagate,
 } /* TkDND_SendEvent */
 
 /*
+ * Same race as TkDND_SendEvent above, but for XGetWindowProperty: the window
+ * being queried (typically a foreign, drag-source-owned window) can be
+ * destroyed between us learning its id and the property request landing on
+ * the server, otherwise killing the whole application with an unhandled
+ * BadWindow/BadDrawable X error. Route such queries through here so the
+ * error is ignored and Success/failure can be checked normally instead.
+ */
+static int TkDND_GetWindowProperty(Display *display, Window w, Atom property,
+                                    long long_offset, long long_length,
+                                    Bool delete, Atom req_type,
+                                    Atom *actual_type_return,
+                                    int *actual_format_return,
+                                    unsigned long *nitems_return,
+                                    unsigned long *bytes_after_return,
+                                    unsigned char **prop_return) {
+  int status;
+  Tk_ErrorHandler handler_bw = Tk_CreateErrorHandler(display, BadWindow, -1, -1,
+                                   TkDND_IgnoreWindowErrorProc, NULL);
+  Tk_ErrorHandler handler_bd = Tk_CreateErrorHandler(display, BadDrawable, -1, -1,
+                                   TkDND_IgnoreWindowErrorProc, NULL);
+  status = XGetWindowProperty(display, w, property, long_offset, long_length,
+                               delete, req_type, actual_type_return,
+                               actual_format_return, nitems_return,
+                               bytes_after_return, prop_return);
+  Tk_DeleteErrorHandler(handler_bw);
+  Tk_DeleteErrorHandler(handler_bd);
+  return status;
+} /* TkDND_GetWindowProperty */
+
+/*
  * XDND Section
  */
 #define XDND_VERSION 5
@@ -397,17 +427,17 @@ Window TkDND_GetVirtualRootWindowOfScreen(Tk_Window tkwin) {
         Window *newRoot = (Window *)0;
 
         if (
-             (XGetWindowProperty(dpy, children[i],
+             (TkDND_GetWindowProperty(dpy, children[i],
                 __WM_ROOT, 0, (long) 1, False, XA_WINDOW,
                 &actual_type, &actual_format, &nitems, &bytesafter,
                 (unsigned char **) &newRoot) == Success
                 && newRoot && (actual_type == XA_WINDOW)) ||
-             (XGetWindowProperty(dpy, children[i],
+             (TkDND_GetWindowProperty(dpy, children[i],
                 __SWM_ROOT, 0, (long) 1, False, XA_WINDOW,
                 &actual_type, &actual_format, &nitems, &bytesafter,
                 (unsigned char **) &newRoot) == Success
                 && newRoot && (actual_type == XA_WINDOW)) ||
-             (XGetWindowProperty(dpy, children[i],
+             (TkDND_GetWindowProperty(dpy, children[i],
                 __SWM_VROOT, 0, (long) 1, False, XA_WINDOW,
                 &actual_type, &actual_format, &nitems, &bytesafter,
                 (unsigned char **) &newRoot) == Success
@@ -479,15 +509,19 @@ int TkDND_HandleXdndEnter(Tk_Window tkwin, XEvent *xevent) {
   } else {
     /* Get the types from XdndTypeList property. */
     Atom actualType = None;
-    int actualFormat;
-    unsigned long itemCount, remainingBytes;
-    Atom *data;
-    XGetWindowProperty(xevent->xclient.display, drag_source,
+    int actualFormat = 0;
+    unsigned long itemCount = 0, remainingBytes = 0;
+    Atom *data = NULL;
+    int status = TkDND_GetWindowProperty(xevent->xclient.display, drag_source,
                        Tk_InternAtom(tkwin, "XdndTypeList"), 0,
                        LONG_MAX, False, XA_ATOM, &actualType, &actualFormat,
                        &itemCount, &remainingBytes, (unsigned char **) &data);
+    /* The drag source's window (and thus this property) can vanish between
+     * the XdndEnter message arriving and us querying it here. Treat a failed
+     * query (including a trapped BadWindow/BadDrawable) as "no types". */
+    if (status != Success || data == NULL) itemCount = 0;
     typelist = (Atom *) Tcl_Alloc(sizeof(Atom)*(itemCount+1));
-    if (typelist == NULL) return False;
+    if (typelist == NULL) { if (data) XFree((unsigned char*)data); return False; }
     for (i=0; i<itemCount; i++) { typelist[i] = data[i]; }
     typelist[itemCount] = None;
     if (data) XFree((unsigned char*)data);
@@ -1301,7 +1335,7 @@ int TkDND_FindDropTargetWindowObjCmd(ClientData clientData,
     }
     lx = lx2; ly = ly2; src = target; type = 0; data = NULL;
     /* Check if we can find the XdndAware property... */
-    XGetWindowProperty(display, target, XdndAware, 0, 0, False,
+    TkDND_GetWindowProperty(display, target, XdndAware, 0, 0, False,
                        AnyPropertyType, &type, &f,&n,&a,&data);
     if (data) XFree(data);
     if (type) break; /* We have found a target! */
@@ -1343,7 +1377,7 @@ int TkDND_FindDropTargetProxyObjCmd(ClientData clientData,
   }
   display = Tk_Display(path);
   proxy = target;
-  XGetWindowProperty(display, target, Tk_InternAtom(path, "XdndProxy"), 0, 1,
+  TkDND_GetWindowProperty(display, target, Tk_InternAtom(path, "XdndProxy"), 0, 1,
                      False, XA_WINDOW, &type, &f,&n,&a,&retval);
   proxy_ptr = (Window *) retval;
   if (type == XA_WINDOW && proxy_ptr) {
@@ -1351,7 +1385,7 @@ int TkDND_FindDropTargetProxyObjCmd(ClientData clientData,
     XFree(proxy_ptr);
     proxy_ptr = NULL;
     /* Is the XdndProxy property pointing to the same window? */
-    XGetWindowProperty(display, proxy, Tk_InternAtom(path, "XdndProxy"), 0, 1,
+    TkDND_GetWindowProperty(display, proxy, Tk_InternAtom(path, "XdndProxy"), 0, 1,
                        False, XA_WINDOW, &type, &f,&n,&a,&retval);
     proxy_ptr = (Window *) retval;
     if (type != XA_WINDOW || !proxy_ptr || *proxy_ptr != proxy) {
@@ -1468,7 +1502,7 @@ int TkDND_SendXdndEnterObjCmd(ClientData clientData,
   display = Tk_Display(source);
 
   /* Get the XDND version supported by the target... */
-  r = XGetWindowProperty(display, proxy, Tk_InternAtom(source, "XdndAware"),
+  r = TkDND_GetWindowProperty(display, proxy, Tk_InternAtom(source, "XdndAware"),
                          0, 1, False, AnyPropertyType,
                          &t, &f, &n, &a, &retval);
   if (r != Success) {
