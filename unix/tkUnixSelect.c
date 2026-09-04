@@ -24,6 +24,7 @@ typedef struct {
   Atom            property;
   int             result;
   int             idleTime;
+  int             maxIdleTime; /* idleTime ticks of silence before giving up */
 } TkDND_ProcDetail;
 
 void TkDND_SelectionNotifyEventProc(ClientData clientData, XEvent *eventPtr);
@@ -168,6 +169,11 @@ int TkDND_ClipboardReadIncrementalProperty(Tk_Window tkwin,
   detail2.clientData       = buffer;
   detail2.result           = -1;
   detail2.idleTime         = 0;
+  /* An INCR transfer is already underway (the owner responded); only abort
+   * on a genuine multi-second stall between chunks, not on total transfer
+   * duration -- see the idleTime reset on progress in
+   * TkDND_PropertyNotifyEventProc below. */
+  detail2.maxIdleTime      = 6;
   Tcl_DStringFree(buffer);
   Tcl_DStringInit(buffer);
 
@@ -239,6 +245,9 @@ void TkDND_PropertyNotifyEventProc(ClientData clientData, XEvent *eventPtr) {
                                        detail, &size, &type, &format);
   detail->clientData = buffer;
   if (status) {
+    /* A chunk arrived: reset the stall clock, since the transfer is still
+     * making progress even if it runs longer than a single idle budget. */
+    detail->idleTime = 0;
     if (size == 0) {
       /* We are done! */
       detail->result = status;
@@ -294,6 +303,12 @@ TkDNDSelGetSelection(
     detail.clientData   = clientData;
     detail.result       = -1;
     detail.idleTime     = 0;
+    /* A responsive owner answers within milliseconds; one that never
+     * answers at all never will, no matter how long we wait, so keep this
+     * budget short instead of the ~6s previously spent per candidate type
+     * (this request can run once per hovered drop target, plus once at the
+     * actual drop, so a long timeout here is pure multiplied stall time). */
+    detail.maxIdleTime  = 3;
 
     XFlush(display);
     if (XGetSelectionOwner(display, selection) == None) {
@@ -373,7 +388,7 @@ TkDND_SelTimeoutProc(
       XFlush(Tk_Display(retrPtr->tkwin));
     }
     retrPtr->idleTime++;
-    if (retrPtr->idleTime >= 6) {
+    if (retrPtr->idleTime >= retrPtr->maxIdleTime) {
 	/*
 	 * Use a careful function to store the error message, because the
 	 * result could already be partially filled in with a partial
