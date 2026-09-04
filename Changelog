@@ -1,3 +1,24 @@
+2026-09-04 Squiblydoo
+        * TkDND 2.10.2 has been released.
+
+        * library/tkdnd_unix.tcl: xdnd::HandleXdndPosition fetched the full
+        dropped-data selection on every pointer motion while hovering a drop
+	target, even when nothing consumed it; that round-trip can block for
+	seconds under XWayland, and doing it on every mouse-move instead of
+	once per drop caused multi-second drag-over stalls and races with
+	HandleLeave. Now the fetch only happens when a bound
+	<<DropEnter>>/<<DropPosition>> script actually references %D, and the
+	result is cached per hovered target instead of refetched on every
+	position event. Related to Eliav2/tkinterdnd2 issues #16 and #20.
+
+        * unix/tkUnixSelect.c: Shortened the initial selection-response wait
+        from ~6s to ~3s -- a responsive owner answers within milliseconds, so
+	this only reduces time spent on a request that was never going to
+	succeed. Also fixed the INCR-transfer idle clock to reset on genuine
+	chunk progress instead of accumulating over the whole transfer, so
+	large legitimate drops no longer risk a false "selection owner didn't
+	respond" timeout partway through.
+
 2026-07-04 Squiblydoo
         * TkDND 2.10.1 has been released.
 
