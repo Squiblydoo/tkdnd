@@ -2,7 +2,7 @@ name: macOS-arm-build
 
 on:
   push:
-    branches: [master, 2.10.1]
+    branches: [master]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -15,6 +15,10 @@ jobs:
     steps:
       - name: check out git repository
         uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: build
         run: |
@@ -31,7 +35,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: macos-arm64
-          path: cmake/runtime/lib/tkdnd2.10.1
+          path: cmake/runtime/lib/tkdnd${{ steps.version.outputs.version }}
 
   release-tcl9:
     name: Build (macOS arm64 / Tcl 9)
@@ -40,6 +44,10 @@ jobs:
     steps:
       - name: check out git repository
         uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: build
         run: |
@@ -55,4 +63,4 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: macos-arm64-tcl9
-          path: cmake/runtime/lib/tkdnd2.10.1
+          path: cmake/runtime/lib/tkdnd${{ steps.version.outputs.version }}

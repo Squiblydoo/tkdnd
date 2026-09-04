@@ -2,7 +2,7 @@ name: linux-builds
 
 on:
   push:
-    branches: [master, 2.10.1]
+    branches: [master]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -25,6 +25,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         run: |
@@ -55,4 +59,4 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: ${{ matrix.artifact }}
-          path: cmake/runtime/lib/tkdnd2.10.1
+          path: cmake/runtime/lib/tkdnd${{ steps.version.outputs.version }}
