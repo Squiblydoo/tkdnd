@@ -22,12 +22,13 @@ jobs:
 
       - name: build
         run: |
-          brew install tcl-tk@8
+          brew install autoconf tcl-tk@8
           TCLTK_PREFIX="$(brew --prefix tcl-tk@8)"
           export PATH="$TCLTK_PREFIX/bin:$PATH"
           export LDFLAGS="-L$TCLTK_PREFIX/lib"
           export CPPFLAGS="-I$TCLTK_PREFIX/include"
           export PKG_CONFIG_PATH="$TCLTK_PREFIX/lib/pkgconfig"
+          autoreconf -fi
           tclsh tcl-conf-arm
           make install arch=arm64
 
@@ -51,11 +52,13 @@ jobs:
 
       - name: build
         run: |
+          brew install autoconf
           brew reinstall tcl-tk
           export PATH="/usr/local/opt/tcl-tk/bin:$PATH"
           export LDFLAGS="-L/usr/local/opt/tcl-tk/lib"
           export CPPFLAGS="-I/usr/local/opt/tcl-tk/include"
           export PKG_CONFIG_PATH="/usr/local/opt/tcl-tk/lib/pkgconfig"
+          autoreconf -fi
           tclsh tcl-conf-arm
           make install arch=arm64
 

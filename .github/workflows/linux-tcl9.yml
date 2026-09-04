@@ -24,7 +24,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential \
+            build-essential autoconf \
             libx11-dev libxss-dev libxft-dev libfontconfig-dev \
             libxcursor-dev xvfb
 
@@ -59,6 +59,9 @@ jobs:
           make -j$(nproc)
           make install
           cp ../generic/tkInt*.h $HOME/tcl9/include/
+
+      - name: Regenerate configure (keeps PACKAGE_VERSION in sync with VERSION)
+        run: autoreconf -fi
 
       - name: Build TkDND
         run: |
@@ -114,7 +117,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential \
+            build-essential autoconf \
             libx11-dev libxss-dev libxft-dev libfontconfig-dev \
             libxcursor-dev xvfb
 
@@ -149,6 +152,9 @@ jobs:
           make -j$(nproc)
           make install
           cp ../generic/tkInt*.h $HOME/tcl9/include/
+
+      - name: Regenerate configure (keeps PACKAGE_VERSION in sync with VERSION)
+        run: autoreconf -fi
 
       - name: Build TkDND
         run: |
@@ -200,8 +206,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential tcl8.6-dev tk8.6-dev \
+            build-essential autoconf tcl8.6-dev tk8.6-dev \
             libxcursor-dev xvfb
+
+      - name: Regenerate configure (keeps PACKAGE_VERSION in sync with VERSION)
+        run: autoreconf -fi
 
       - name: Build TkDND
         run: |

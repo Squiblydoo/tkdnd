@@ -35,7 +35,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             tcl tcl-dev tk tk-dev \
-            build-essential libxcursor-dev xvfb
+            build-essential autoconf libxcursor-dev xvfb
+
+      - name: Regenerate configure (keeps PACKAGE_VERSION in sync with VERSION)
+        run: autoreconf -fi
 
       - name: Build
         run: |
