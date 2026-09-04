@@ -2,7 +2,7 @@ name: linux-tcl9
 
 on:
   push:
-    branches: [master, 2.10.1]
+    branches: [master]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -15,6 +15,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Install build dependencies
         run: |
@@ -92,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: linux-x86_64-tcl9
-          path: install/lib/tkdnd2.10.1
+          path: install/lib/tkdnd${{ steps.version.outputs.version }}
 
   build-tcl9-arm64:
     name: Build and test (Tcl 9 / Linux arm64)
@@ -101,6 +105,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Install build dependencies
         run: |
@@ -178,7 +186,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: linux-arm64-tcl9
-          path: install/lib/tkdnd2.10.1
+          path: install/lib/tkdnd${{ steps.version.outputs.version }}
 
   build-tcl86:
     name: Build and test (Tcl 8.6 / Linux x64)

@@ -2,7 +2,7 @@ name: windows-builds
 
 on:
   push:
-    branches: [master, 2.10.1]
+    branches: [master]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -27,6 +27,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(Get-Content VERSION)" >> $env:GITHUB_OUTPUT
 
       - name: Install IronTcl
         run: |
@@ -57,7 +61,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: ${{ matrix.artifact }}
-          path: runtime/tkdnd2.10.1
+          path: runtime/tkdnd${{ steps.version.outputs.version }}
 
   build-tcl9:
     name: Build (Windows ${{ matrix.arch }} Tcl9)
@@ -78,6 +82,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(Get-Content VERSION)" >> $env:GITHUB_OUTPUT
 
       - name: Install native tclsh (for cmake FindTCL)
         run: |
@@ -131,7 +139,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: ${{ matrix.artifact }}
-          path: runtime/tkdnd2.10.1
+          path: runtime/tkdnd${{ steps.version.outputs.version }}
 
   build-arm64:
     name: Build (Windows ARM64)
@@ -140,6 +148,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(Get-Content VERSION)" >> $env:GITHUB_OUTPUT
 
       - name: Install native Tcl/Tk (provides tclsh/wish for cmake FindTCL)
         run: |
@@ -194,4 +206,4 @@ jobs:
         uses: actions/upload-artifact@v4.3.5
         with:
           name: windows-arm64
-          path: runtime/tkdnd2.10.1
+          path: runtime/tkdnd${{ steps.version.outputs.version }}
