@@ -178,8 +178,10 @@ int TkDND_ClipboardReadIncrementalProperty(Tk_Window tkwin,
   Tcl_DStringInit(buffer);
 
   //XFlush(display);
-  /* Install a handler for PropertyNotify events... */
-  Tk_CreateEventHandler(tkwin, PropertyNotify,
+  /* Install a handler for PropertyNotify events. Note that the second
+   * argument is an event *mask*, not an event type: passing PropertyNotify
+   * (28) here would select ButtonPress|ButtonRelease|EnterWindow instead. */
+  Tk_CreateEventHandler(tkwin, PropertyChangeMask,
                         TkDND_PropertyNotifyEventProc, &detail2);
   /*
    * Enter a loop processing X events until the selection has been retrieved
@@ -192,7 +194,7 @@ int TkDND_ClipboardReadIncrementalProperty(Tk_Window tkwin,
     //XFlush(display);
     Tcl_DoOneEvent(0);
   }
-  Tk_DeleteEventHandler(tkwin, PropertyNotify,
+  Tk_DeleteEventHandler(tkwin, PropertyChangeMask,
                         TkDND_PropertyNotifyEventProc, &detail2);
   if (detail2.timeout) Tcl_DeleteTimerHandler(detail2.timeout);
   return detail2.result;
@@ -202,6 +204,18 @@ void TkDND_SelectionNotifyEventProc(ClientData clientData, XEvent *eventPtr) {
   TkDND_ProcDetail *detail = (TkDND_ProcDetail *) clientData;
   int status, size, format;
   Atom type;
+
+  /* Tk event masks have no bit for SelectionNotify, so the handler installed
+   * by TkDNDSelGetSelection is also invoked for unrelated events (e.g. the
+   * EnterNotify generated when the pointer is released over the drop target
+   * at the end of a drag). Treating those as the owner's reply aborted the
+   * retrieval before the data arrived, so ignore anything that isn't a
+   * SelectionNotify for our request. */
+  if (eventPtr != NULL &&
+      (eventPtr->type != SelectionNotify ||
+       eventPtr->xselection.requestor != Tk_WindowId(detail->tkwin))) {
+    return;
+  }
 
   status = TkDND_ClipboardReadProperty(detail->tkwin, detail->property, 1,
                                        detail, &size, &type, &format);
@@ -235,7 +249,9 @@ void TkDND_PropertyNotifyEventProc(ClientData clientData, XEvent *eventPtr) {
   Tcl_DString       ds;
   int status, size, format;
   Atom type;
-  if (eventPtr->xproperty.atom != detail->property ||
+  if (eventPtr->type != PropertyNotify ||
+      eventPtr->xproperty.window != Tk_WindowId(detail->tkwin) ||
+      eventPtr->xproperty.atom != detail->property ||
       eventPtr->xproperty.state != PropertyNewValue) return;
   /* We will call TkDND_ClipboardReadProperty to read the property. Ensure that
    * a temporary DString will be used... */ 
@@ -326,6 +342,10 @@ TkDNDSelGetSelection(
     /* Register an event handler for tkwin... */
     Tk_CreateEventHandler(sel_tkwin, SelectionNotify,
                           TkDND_SelectionNotifyEventProc, &detail);
+    /* We poll the property below as well as waiting for SelectionNotify, so
+     * make sure a late reply to an earlier, abandoned request isn't still
+     * sitting there to be returned as this request's data. */
+    XDeleteProperty(display, Tk_WindowId(sel_tkwin), selection);
     XConvertSelection(display, selection, target,
 	              selection, Tk_WindowId(sel_tkwin), time);
     XFlush(display);

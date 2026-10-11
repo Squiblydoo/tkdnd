@@ -1,3 +1,23 @@
+2026-10-11 Squiblydoo
+        * TkDND 2.10.3 has been released.
+
+        * unix/tkUnixSelect.c: The selection-retrieval handlers were
+	registered with Tk_CreateEventHandler using X event *types*
+	(SelectionNotify, PropertyNotify) where Tk expects event *masks*,
+	so they were also invoked for unrelated key, button and
+	enter/leave events. In particular, the EnterNotify generated when
+	the pointer is released over the drop target at the end of a drag
+	was mistaken for the owner's reply, aborting the XdndSelection
+	request before the data arrived, so the drop was lost. The
+	owner's real reply was then left in the property and returned by
+	the next request, so the next drop delivered the previous drag's
+	data instead of its own. The handlers now ignore events that are
+	not a SelectionNotify/PropertyNotify for our window, the INCR
+	handler uses PropertyChangeMask, and the property is deleted
+	before each XConvertSelection so a late reply to an abandoned
+	request can't be returned as current data. Fixes
+	Eliav2/tkinterdnd2 issue #23.
+
 2026-09-04 Squiblydoo
         * TkDND 2.10.2 has been released.
 
